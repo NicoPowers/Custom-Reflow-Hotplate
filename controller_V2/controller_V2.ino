@@ -35,7 +35,8 @@
 //pid settings and gains
 #define OUTPUT_MIN 0
 #define OUTPUT_MAX 200
-#define KP 0.1
+#define MAX_ON_TIME 1
+#define KP 1
 #define KI 0.01
 #define KD 0.0001
 
@@ -53,6 +54,8 @@ Adafruit_MAX31855 thermocouple(MAXCLK, MAXCS, MAXDO);
 AutoPID myPID(&temperature, &setPoint, &outputVal, OUTPUT_MIN, OUTPUT_MAX, KP, KI, KD);
 
 void goToTemp(double temp, int reachTime, int holdTime);
+void ssrControl(int onTime);
+
 
 void setup() {
   Serial.begin(115200);
@@ -73,8 +76,8 @@ void setup() {
   pinMode(SSR_PIN, OUTPUT);
 
   //if temperature is more than 4 degrees below or above setpoint, OUTPUT will be set to min or max respectively
-  myPID.setBangBang(20);
-  myPID.setTimeStep(1000);
+//  myPID.setBangBang(20);
+//  myPID.setTimeStep(1000);
 
 
   goToTemp(PREHEAT, 60, 100);
@@ -112,20 +115,6 @@ void loop() {
       }
     }
   }
-  /*
-    if (millis() % 1000 == 0) {
-    temperature = thermocouple.readCelsius();
-    if (isnan(temperature)) {
-      Serial.println("Something wrong with thermocouple!");
-    } else {
-      Serial.print("C = ");
-      Serial.println(temperature);
-    }
-    myPID.run();
-    }
-
-    digitalWrite(SSR_PIN, (millis() % 500 < outputVal) ? (HIGH) : (LOW) ) ; // 10 Hz 50% duty cycle
-  */
 
 }
 
@@ -137,6 +126,7 @@ void goToTemp(double desiredTemp, int reachTime, int holdTime) {
 
   unsigned long currentTime = millis();
   unsigned long endTime;
+  double feedBackError;
 
   // if current temp higher than desired temp, wait for it to cooldown
   temperature = thermocouple.readCelsius();
@@ -176,10 +166,12 @@ void goToTemp(double desiredTemp, int reachTime, int holdTime) {
         Serial.print(',');
         Serial.print(temperature);
         Serial.print('\n');
-        delay(1);
+        feedBackError = KP * (desiredTemp - temperature);
+        Serial.print("Feedback error = ");
+        Serial.println(feedBackError);
+        ssrControl(feedBackError*MAX_ON_TIME);
       }
-      myPID.run();
-      digitalWrite(SSR_PIN, (millis() % 200 < outputVal) ? (HIGH) : (LOW) ) ; // 10 Hz 50% duty cycle
+          
 
     }
 
@@ -212,12 +204,12 @@ void goToTemp(double desiredTemp, int reachTime, int holdTime) {
         Serial.print(',');
         Serial.print(temperature);
         Serial.print('\n');
+        feedBackError = KP * (desiredTemp - temperature);
+        Serial.print("Feedback error = ");
+        Serial.println(feedBackError);
+        ssrControl(feedBackError*MAX_ON_TIME);
 
       }
-      myPID.run();
-      digitalWrite(SSR_PIN, (millis() % 200 < outputVal) ? (HIGH) : (LOW) ) ; // 10 Hz 50% duty cycle
-      delay(1);
-
     }
 
   }
@@ -226,4 +218,17 @@ void goToTemp(double desiredTemp, int reachTime, int holdTime) {
   Serial.print("Time spent holding desired temp = ");
   Serial.println((double)(endTime - currentTime) / 1000.0);
 
+}
+
+void ssrControl(int onTime) {
+  Serial.print("Going to turn on for ");
+  Serial.print(onTime);
+  Serial.println(" seconds.");
+  unsigned long startTime = millis();
+  unsigned long endTime = startTime + (1000*onTime);
+  digitalWrite(SSR_PIN, HIGH);
+  while(millis() < endTime) {
+    
+  }
+  digitalWrite(SSR_PIN, LOW);
 }

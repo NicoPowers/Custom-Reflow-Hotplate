@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from time import sleep
+import csv
 import serial
 
 #initialize serial port
@@ -14,7 +15,7 @@ if ser.is_open==True:
 	print(ser, "\n") #print serial parameters
 
 ser.flushInput()
-sleep(1)
+
 
 # Create figure for plotting
 fig = plt.figure()
@@ -22,16 +23,20 @@ ax = fig.add_subplot(1, 1, 1)
 timeDataPoints = set() 
 tempDataPoints = [] 
 
+# stuff for csv
+header = ["time", "temperature"]
+data = []
+
 # This function is called periodically from FuncAnimation
 def animate(time, timeDataPoints, tempDataPoints):
 
     #Aquire and parse data from serial port
     if (ser.in_waiting):
-        line=ser.readline()      #ascii        
+        line=ser.readline()      #ascii
+        print(line)        
         line_as_list = line.split(b',')            
         if (len(line_as_list) == 2):
-            try:
-                print(line)                        
+            try:                       
                 time = float(line_as_list[0])
                 if time not in timeDataPoints:            
                     temp = line_as_list[1]
@@ -40,7 +45,9 @@ def animate(time, timeDataPoints, tempDataPoints):
                     
                     # Add x and y to lists
                     timeDataPoints.add(time)
-                    tempDataPoints.append(temp_float)                        
+                    tempDataPoints.append(temp_float)
+
+                    data.append([time, temp_float])                        
 
                     # Draw x and y lists
                     ax.clear()
@@ -53,6 +60,26 @@ def animate(time, timeDataPoints, tempDataPoints):
             except Exception as e:
                 print("Data transmission error.")                    
 
-# Set up plot to call animate() function periodically
-ani = animation.FuncAnimation(fig, animate, fargs=(timeDataPoints, tempDataPoints), interval=200)
-plt.show()
+
+try:
+    while(ser.in_waiting):
+        ser.readline()
+        
+    # Set up plot to call animate() function periodically
+    ani = animation.FuncAnimation(fig, animate, fargs=(timeDataPoints, tempDataPoints), interval=500)
+    plt.show()
+    
+except KeyboardInterrupt:
+    print("Canceled by user")
+
+finally:
+    # save data to csv
+    with open('plot_data.csv', 'w') as f:
+        writer = csv.writer(f)
+
+        # write the header
+        writer.writerow(header)
+
+        # write multiple rows
+        writer.writerows(data)
+
