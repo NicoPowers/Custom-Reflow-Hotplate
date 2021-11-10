@@ -18,7 +18,7 @@
 
 #include <SPI.h>
 #include <AutoPID.h>
-#include <SoftPWM.h>
+//#include <SoftPWM.h>
 #include "Adafruit_MAX31855.h"
 
 // Default connection is using software SPI, but comment and uncomment one of
@@ -55,6 +55,7 @@ AutoPID myPID(&temperature, &setPoint, &outputVal, OUTPUT_MIN, OUTPUT_MAX, KP, K
 
 void pwm_for_time(unsigned int onTime, unsigned int offTime, unsigned long duration, bool checkMaxTemp);
 
+
 void setup() {
   Serial.begin(115200);
 
@@ -72,12 +73,23 @@ void setup() {
   Serial.println("DONE.");
 
   pinMode(SSR_PIN, OUTPUT);
-
-  pwm_for_time(240, 760, 150000, false);
-  pwm_for_time(270, 730, 90000, false);
+  
+  // preheat
+  pwm_for_time(500, 500, 80000, false);
+  pwm_for_time(100, 900, 70000, false);
+  // soak
+  pwm_for_time(600, 400, 30000, false);
+  pwm_for_time(150, 850, 60000, false);
   pwm_for_time(330, 670, 60000, false);
-  pwm_for_time(500, 500, 35000, false);
-  pwm_for_time(200, 800, 75000, false);
+  // reflow
+  pwm_for_time(550, 450, 38000, false);
+  tone(10, 444, 500);
+  pwm_for_time(0, 1000, 40000, false);
+  tone(10, 444, 500);
+  pwm_for_time(100, 900, 50000, false);
+  // open door with screwdriver
+  tone(10, 444, 500);
+  // cooldown
 }
 
 
@@ -119,6 +131,7 @@ void pwm_for_time(unsigned int onTime, unsigned int offTime, unsigned long durat
     temperature = thermocouple.readCelsius();
     if (checkMaxTemp) {
       if (temperature >= 160) {
+        digitalWrite(SSR_PIN, LOW);
         return;
       }
     }
